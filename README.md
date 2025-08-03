@@ -1,5 +1,7 @@
 # Video Processing & YouTube Optimization Suite
 
+> I recommend you open this in AI code editor and chat with it, just tell it to help you set it up.
+
 A comprehensive Next.js application for video processing, thumbnail design, AI-powered metadata generation, and YouTube optimization with modern glassmorphism UI.
 
 ## ✨ Features
