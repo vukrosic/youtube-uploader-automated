@@ -39,3 +39,20 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Personal content - exclude files but keep folder structure
+/videos/*
+!/videos/README.md
+!/videos/.gitkeep
+
+# Whisper virtual environment
+/whisper-env/
+
+# Thumbnail content - exclude personal images but keep README files
+/public/thumbnail-backgrounds/*
+!/public/thumbnail-backgrounds/README.md
+!/public/thumbnail-backgrounds/.gitkeep
+
+/public/thumbnail-overlays/*
+!/public/thumbnail-overlays/README.md
+!/public/thumbnail-overlays/.gitkeep
