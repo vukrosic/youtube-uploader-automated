@@ -111,22 +111,27 @@ export async function POST(request: Request) {
 
     let thumbnailUploadResult = null;
 
-    // Upload thumbnail if provided
+    // Rename and upload thumbnail if provided
     if (thumbnailFile && response.data.id) {
       try {
-        const videosPath = join(process.cwd(), 'videos');
-        const thumbnailPath = join(videosPath, thumbnailFile);
+        const originalThumbnailPath = join(videosPath, thumbnailFile);
+        const thumbnailExtension = thumbnailFile.split('.').pop();
+        const newThumbnailPath = join(videosPath, `${sanitizedTitle}.${thumbnailExtension}`);
         
         // Check if thumbnail file exists
-        await access(thumbnailPath);
+        await access(originalThumbnailPath);
         
-        console.log('Uploading thumbnail:', thumbnailFile);
+        // Rename thumbnail to match video title
+        await rename(originalThumbnailPath, newThumbnailPath);
+        console.log(`Renamed ${thumbnailFile} to ${sanitizedTitle}.${thumbnailExtension}`);
+        
+        console.log('Uploading thumbnail:', `${sanitizedTitle}.${thumbnailExtension}`);
         
         const thumbnailResponse = await youtube.thumbnails.set({
           auth: oauth2Client,
           videoId: response.data.id,
           media: {
-            body: createReadStream(thumbnailPath),
+            body: createReadStream(newThumbnailPath),
           },
         });
 

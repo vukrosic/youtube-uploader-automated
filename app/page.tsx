@@ -40,6 +40,10 @@ export default function Home() {
   const [thumbnailResult, setThumbnailResult] = useState<string | null>(null);
   const [generatingSocial, setGeneratingSocial] = useState<string | null>(null);
   const [socialResult, setSocialResult] = useState<string | null>(null);
+  const [postingToX, setPostingToX] = useState(false);
+  const [xPostResult, setXPostResult] = useState<string | null>(null);
+  const [showXPostForm, setShowXPostForm] = useState(false);
+  const [xPostText, setXPostText] = useState('');
 
   useEffect(() => {
     const fetchVideos = async () => {
@@ -63,14 +67,14 @@ export default function Home() {
   const handleConcatenate = async () => {
     setConcatenating(true);
     setConcatenateResult(null);
-    
+
     try {
       const response = await fetch('/api/concatenate', {
         method: 'POST',
       });
-      
+
       const data = await response.json();
-      
+
       if (response.ok) {
         setConcatenateResult(`Success: ${data.message}`);
         // Refresh the video list to show the new output.mkv file
@@ -92,14 +96,14 @@ export default function Home() {
   const handleConvert = async () => {
     setConverting(true);
     setConvertResult(null);
-    
+
     try {
       const response = await fetch('/api/convert', {
         method: 'POST',
       });
-      
+
       const data = await response.json();
-      
+
       if (response.ok) {
         setConvertResult(`Success: ${data.message}`);
         // Refresh the video list to show the new output.mp4 file
@@ -121,7 +125,7 @@ export default function Home() {
   const handleTranscribe = async (filename: string) => {
     setTranscribing(true);
     setTranscribeResult(null);
-    
+
     try {
       const response = await fetch('/api/transcribe', {
         method: 'POST',
@@ -130,9 +134,9 @@ export default function Home() {
         },
         body: JSON.stringify({ filename }),
       });
-      
+
       const data = await response.json();
-      
+
       if (response.ok) {
         setTranscribeResult(`Success: ${data.message}`);
         // Refresh the video list to show the new transcript file
@@ -154,7 +158,7 @@ export default function Home() {
   const handleUploadToYouTube = async () => {
     setUploading(true);
     setUploadResult(null);
-    
+
     try {
       const response = await fetch('/api/upload-youtube', {
         method: 'POST',
@@ -169,9 +173,9 @@ export default function Home() {
           thumbnailFile: uploadForm.thumbnailFile
         }),
       });
-      
+
       const data = await response.json();
-      
+
       if (response.ok) {
         setUploadResult(`Success: ${data.message}. Video URL: ${data.videoUrl}`);
         setShowUploadForm(false);
@@ -191,28 +195,28 @@ export default function Home() {
 
     setGeneratingMetadata(true);
     setMetadataResult(null);
-    
+
     try {
       const response = await fetch('/api/generate-metadata', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           transcriptFile,
           titleTheme: customTitleTheme || titleTheme || undefined
         }),
       });
-      
+
       const data = await response.json();
-      
+
       if (response.ok) {
         setMetadataResult(`Success: Generated optimized YouTube metadata with ${data.metadata.titleVariations?.length || 0} title variations!`);
-        
+
         // Store title variations
         setTitleVariations(data.metadata.titleVariations || []);
         setShowTitleVariations(data.metadata.titleVariations?.length > 0);
-        
+
         // Auto-fill the upload form with generated metadata
         setUploadForm({
           title: data.metadata.title || '',
@@ -247,7 +251,7 @@ export default function Home() {
       if (response.ok) {
         setThumbnailResult(`Success: Thumbnail saved as ${data.filename}`);
         setShowThumbnailDesigner(false);
-        
+
         // Refresh the video list to show the new thumbnail
         const videoResponse = await fetch('/api/videos');
         if (videoResponse.ok) {
@@ -280,7 +284,7 @@ export default function Home() {
 
       if (response.ok) {
         setThumbnailResult(`Success: ${data.message}`);
-        
+
         // Refresh the video list to remove the deleted thumbnail
         const videoResponse = await fetch('/api/videos');
         if (videoResponse.ok) {
@@ -295,10 +299,71 @@ export default function Home() {
     }
   };
 
+  const handlePostToX = async () => {
+    if (!xPostText.trim()) {
+      setXPostResult('Error: Please enter text for your X post');
+      return;
+    }
+
+    setPostingToX(true);
+    setXPostResult(null);
+
+    try {
+      const response = await fetch('/api/post-to-x', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: xPostText,
+          filename: 'output.mp4' // Always use output.mp4 for X posting
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setXPostResult(`Success: ${data.message}`);
+        if (data.wascut) {
+          setXPostResult(prev => prev + ` Video was cut from ${data.originalDuration} to ${data.finalDuration} for X.`);
+        }
+
+        // Refresh the video list to show any new cut video
+        const videoResponse = await fetch('/api/videos');
+        if (videoResponse.ok) {
+          const videoData: VideoFile = await videoResponse.json();
+          setVideos(videoData.videos);
+        }
+      } else {
+        setXPostResult(`Error: ${data.error}`);
+      }
+    } catch (err) {
+      setXPostResult(`Error: ${err instanceof Error ? err.message : 'Failed to post to X'}`);
+    } finally {
+      setPostingToX(false);
+    }
+  };
+
+  const handleOpenVideosFolder = async () => {
+    try {
+      const response = await fetch('/api/open-videos-folder', {
+        method: 'POST',
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        console.error('Failed to open videos folder:', data.error);
+      }
+    } catch (err) {
+      console.error('Error opening videos folder:', err);
+    }
+  };
+
   const handleGenerateSocialVideo = async (platform: 'twitter' | 'linkedin', filename: string) => {
     setGeneratingSocial(platform);
     setSocialResult(null);
-    
+
     try {
       const response = await fetch('/api/generate-social-video', {
         method: 'POST',
@@ -307,12 +372,12 @@ export default function Home() {
         },
         body: JSON.stringify({ platform, filename }),
       });
-      
+
       const data = await response.json();
-      
+
       if (response.ok) {
         setSocialResult(`Success: ${data.message} (${data.originalDuration} → ${data.finalDuration})`);
-        
+
         // Refresh the video list to show the new social video
         const videoResponse = await fetch('/api/videos');
         if (videoResponse.ok) {
@@ -345,7 +410,7 @@ export default function Home() {
           </h1>
           <p className="text-white/70 text-lg">Transform, transcribe, and optimize your videos</p>
         </div>
-        
+
         {loading && (
           <div className="text-center">
             <p className="text-lg">Loading videos...</p>
@@ -421,10 +486,25 @@ export default function Home() {
                     >
                       Design Thumbnail
                     </button>
+                    <button
+                      onClick={handleOpenVideosFolder}
+                      className="backdrop-blur-md bg-green-500/20 hover:bg-green-500/30 text-white px-6 py-3 rounded-2xl font-medium transition-all duration-300 border border-green-400/30 hover:border-green-400/50 shadow-lg hover:shadow-green-500/25"
+                    >
+                      📁 Open Videos Folder
+                    </button>
+                    {videos.includes('output.mp4') && (
+                      <button
+                        onClick={() => setShowXPostForm(!showXPostForm)}
+                        disabled={postingToX || converting || concatenating || transcribing || generatingMetadata || uploading}
+                        className="backdrop-blur-md bg-black/20 hover:bg-black/30 disabled:bg-gray-500/20 text-white px-6 py-3 rounded-2xl font-medium transition-all duration-300 border border-gray-400/30 hover:border-gray-400/50 shadow-lg hover:shadow-gray-500/25"
+                      >
+                        {postingToX ? 'Posting...' : 'Post to X'}
+                      </button>
+                    )}
                     {videos.includes('output.mkv') && (
                       <button
                         onClick={() => setShowUploadForm(!showUploadForm)}
-                        disabled={uploading || converting || concatenating || transcribing || generatingMetadata}
+                        disabled={uploading || converting || concatenating || transcribing || generatingMetadata || postingToX}
                         className="backdrop-blur-md bg-red-500/20 hover:bg-red-500/30 disabled:bg-gray-500/20 text-white px-6 py-3 rounded-2xl font-medium transition-all duration-300 border border-red-400/30 hover:border-red-400/50 shadow-lg hover:shadow-red-500/25"
                       >
                         {uploading ? 'Uploading...' : 'Upload to YouTube'}
@@ -432,21 +512,21 @@ export default function Home() {
                     )}
                   </div>
                 </div>
-                
-                {(concatenateResult || convertResult || transcribeResult || metadataResult || thumbnailResult || socialResult) && (
+
+                {(concatenateResult || convertResult || transcribeResult || metadataResult || thumbnailResult || socialResult || xPostResult) && (
                   <div className="space-y-4 mb-6">
                     {concatenateResult && (
                       <div className={`backdrop-blur-md p-4 rounded-2xl border ${concatenateResult.startsWith('Success') ? 'bg-green-500/10 border-green-400/30 text-green-100' : 'bg-red-500/10 border-red-400/30 text-red-100'} shadow-lg`}>
                         {concatenateResult}
                       </div>
                     )}
-                    
+
                     {convertResult && (
                       <div className={`backdrop-blur-md p-4 rounded-2xl border ${convertResult.startsWith('Success') ? 'bg-green-500/10 border-green-400/30 text-green-100' : 'bg-red-500/10 border-red-400/30 text-red-100'} shadow-lg`}>
                         {convertResult}
                       </div>
                     )}
-                    
+
                     {transcribeResult && (
                       <div className={`backdrop-blur-md p-4 rounded-2xl border ${transcribeResult.startsWith('Success') ? 'bg-green-500/10 border-green-400/30 text-green-100' : 'bg-red-500/10 border-red-400/30 text-red-100'} shadow-lg`}>
                         {transcribeResult}
@@ -468,6 +548,12 @@ export default function Home() {
                     {socialResult && (
                       <div className={`backdrop-blur-md p-4 rounded-2xl border ${socialResult.startsWith('Success') ? 'bg-green-500/10 border-green-400/30 text-green-100' : 'bg-red-500/10 border-red-400/30 text-red-100'} shadow-lg`}>
                         {socialResult}
+                      </div>
+                    )}
+
+                    {xPostResult && (
+                      <div className={`backdrop-blur-md p-4 rounded-2xl border ${xPostResult.startsWith('Success') ? 'bg-green-500/10 border-green-400/30 text-green-100' : 'bg-red-500/10 border-red-400/30 text-red-100'} shadow-lg`}>
+                        {xPostResult}
                       </div>
                     )}
                   </div>
@@ -520,12 +606,12 @@ export default function Home() {
                         <input
                           type="text"
                           value={uploadForm.title}
-                          onChange={(e) => setUploadForm({...uploadForm, title: e.target.value})}
+                          onChange={(e) => setUploadForm({ ...uploadForm, title: e.target.value })}
                           className="backdrop-blur-md bg-white/10 border border-white/20 rounded-2xl px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 transition-all duration-300 w-full"
                           placeholder="Video title (AI-generated titles are optimized for SEO)"
                           maxLength={100}
                         />
-                        
+
                         {showTitleVariations && titleVariations.length > 0 && (
                           <div className="mt-2 p-3 bg-gray-100 dark:bg-gray-700 rounded-lg">
                             <p className="text-sm font-medium mb-2">AI-Generated Title Variations:</p>
@@ -533,7 +619,7 @@ export default function Home() {
                               {titleVariations.map((variation, index) => (
                                 <div key={index} className="flex items-center gap-2">
                                   <button
-                                    onClick={() => setUploadForm({...uploadForm, title: variation})}
+                                    onClick={() => setUploadForm({ ...uploadForm, title: variation })}
                                     className="flex-1 text-left p-2 text-sm bg-white dark:bg-gray-600 rounded border hover:bg-gray-50 dark:hover:bg-gray-500 transition-colors"
                                   >
                                     <span className="text-xs text-gray-500 mr-2">#{index + 1}</span>
@@ -552,7 +638,7 @@ export default function Home() {
                         <label className="block text-sm font-medium mb-1">Description (with chapters)</label>
                         <textarea
                           value={uploadForm.description}
-                          onChange={(e) => setUploadForm({...uploadForm, description: e.target.value})}
+                          onChange={(e) => setUploadForm({ ...uploadForm, description: e.target.value })}
                           className="backdrop-blur-md bg-white/10 border border-white/20 rounded-2xl px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 transition-all duration-300 w-full h-40 font-mono text-sm resize-none"
                           placeholder="Video description with timestamps and chapters..."
                         />
@@ -570,7 +656,7 @@ export default function Home() {
                         <input
                           type="text"
                           value={uploadForm.tags}
-                          onChange={(e) => setUploadForm({...uploadForm, tags: e.target.value})}
+                          onChange={(e) => setUploadForm({ ...uploadForm, tags: e.target.value })}
                           className="backdrop-blur-md bg-white/10 border border-white/20 rounded-2xl px-4 py-3 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 transition-all duration-300 w-full"
                           placeholder="tag1, tag2, tag3"
                           maxLength={500}
@@ -583,7 +669,7 @@ export default function Home() {
                         <label className="block text-sm font-medium mb-1">Privacy</label>
                         <select
                           value={uploadForm.privacy}
-                          onChange={(e) => setUploadForm({...uploadForm, privacy: e.target.value})}
+                          onChange={(e) => setUploadForm({ ...uploadForm, privacy: e.target.value })}
                           className="backdrop-blur-md bg-white/10 border border-white/20 rounded-2xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 transition-all duration-300"
                         >
                           <option value="private" className="bg-gray-800 text-white">Private</option>
@@ -598,7 +684,7 @@ export default function Home() {
                           <div className="space-y-3">
                             <select
                               value={uploadForm.thumbnailFile}
-                              onChange={(e) => setUploadForm({...uploadForm, thumbnailFile: e.target.value})}
+                              onChange={(e) => setUploadForm({ ...uploadForm, thumbnailFile: e.target.value })}
                               className="backdrop-blur-md bg-white/10 border border-white/20 rounded-2xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-pink-400/50 focus:border-pink-400/50 transition-all duration-300 w-full"
                             >
                               <option value="" className="bg-gray-800 text-white">No thumbnail</option>
@@ -608,13 +694,13 @@ export default function Home() {
                                 </option>
                               ))}
                             </select>
-                            
+
                             {uploadForm.thumbnailFile && (
                               <div className="backdrop-blur-md bg-white/5 border border-white/10 rounded-2xl p-4">
                                 <p className="text-white/70 text-sm mb-3">Selected Thumbnail Preview:</p>
                                 <div className="flex items-center gap-4">
                                   <div className="w-32 h-18 rounded-xl overflow-hidden border-2 border-pink-400/50 flex-shrink-0">
-                                    <img 
+                                    <img
                                       src={`/api/videos/${uploadForm.thumbnailFile}`}
                                       alt="Selected thumbnail"
                                       className="w-full h-full object-cover"
@@ -667,10 +753,10 @@ export default function Home() {
                     {uploadResult}
                   </div>
                 )}
-                
+
                 <div className="space-y-3">
                   {videos.map((video, index) => (
-                    <div 
+                    <div
                       key={index}
                       className="backdrop-blur-md bg-white/5 hover:bg-white/10 p-5 rounded-2xl border border-white/10 hover:border-white/20 transition-all duration-300 shadow-lg hover:shadow-xl"
                     >
@@ -678,7 +764,7 @@ export default function Home() {
                         {video.startsWith('thumbnail-') && video.endsWith('.png') ? (
                           <div className="relative group">
                             <div className="w-16 h-9 rounded overflow-hidden border-2 border-pink-500 flex-shrink-0 cursor-pointer relative">
-                              <img 
+                              <img
                                 src={`/api/videos/${video}`}
                                 alt={video}
                                 className="w-full h-full object-cover transition-transform group-hover:scale-105"
@@ -707,7 +793,7 @@ export default function Home() {
                             {/* Hover preview */}
                             <div className="absolute left-0 top-full mt-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                               <div className="w-64 h-36 rounded-lg overflow-hidden border-2 border-pink-500 shadow-lg bg-white">
-                                <img 
+                                <img
                                   src={`/api/videos/${video}`}
                                   alt={video}
                                   className="w-full h-full object-cover"
@@ -728,19 +814,18 @@ export default function Home() {
                             </div>
                           </div>
                         ) : (
-                          <div className={`w-8 h-8 rounded flex items-center justify-center text-white font-semibold ${
-                            video === 'output.mkv' 
-                              ? 'bg-green-500' 
+                          <div className={`w-8 h-8 rounded flex items-center justify-center text-white font-semibold ${video === 'output.mkv'
+                              ? 'bg-green-500'
                               : video === 'output.mp4'
-                              ? 'bg-purple-500'
-                              : video.endsWith('_transcript.txt')
-                              ? 'bg-orange-500'
-                              : 'bg-blue-500'
-                          }`}>
-                            {video === 'output.mkv' ? '📹' : 
-                             video === 'output.mp4' ? '🎬' : 
-                             video.endsWith('_transcript.txt') ? '📝' : 
-                             index + 1}
+                                ? 'bg-purple-500'
+                                : video.endsWith('_transcript.txt')
+                                  ? 'bg-orange-500'
+                                  : 'bg-blue-500'
+                            }`}>
+                            {video === 'output.mkv' ? '📹' :
+                              video === 'output.mp4' ? '🎬' :
+                                video.endsWith('_transcript.txt') ? '📝' :
+                                  index + 1}
                           </div>
                         )}
                         <span className="font-mono text-sm sm:text-base break-all text-white/90">{video}</span>

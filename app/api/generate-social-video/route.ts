@@ -60,14 +60,14 @@ export async function POST(request: Request) {
     const outputFilename = `${baseName}_${limit.suffix}.mp4`;
     const outputPath = join(videosPath, outputFilename);
 
-    // Cut video to platform limit with high quality
-    const cutCommand = `ffmpeg -i "${inputPath}" -t ${limit.maxDuration} -c:v libx264 -c:a aac -preset medium -crf 18 -b:a 192k "${outputPath}" -y`;
+    // Cut video to platform limit using stream copy (fast, no re-encoding)
+    const cutCommand = `ffmpeg -i "${inputPath}" -t ${limit.maxDuration} -c copy "${outputPath}" -y`;
     
-    console.log('Executing cut command:', cutCommand);
+    console.log('Executing fast cut command (stream copy):', cutCommand);
     
     const { stdout, stderr } = await execAsync(cutCommand, { 
       cwd: videosPath,
-      timeout: 600000 // 10 minute timeout
+      timeout: 60000 // 1 minute timeout (should be very fast)
     });
     
     console.log('FFmpeg stdout:', stdout);
@@ -86,7 +86,7 @@ export async function POST(request: Request) {
     
     return NextResponse.json({ 
       success: true, 
-      message: `Successfully created ${platform} video: ${outputFilename}`,
+      message: `Successfully created ${platform} video: ${outputFilename} (fast trim, no re-encoding)`,
       originalDuration: `${Math.floor(videoDuration / 60)}:${Math.floor(videoDuration % 60).toString().padStart(2, '0')}`,
       finalDuration: `${finalMinutes}:${finalSeconds.toString().padStart(2, '0')}`,
       outputFilename,

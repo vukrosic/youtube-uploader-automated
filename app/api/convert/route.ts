@@ -19,23 +19,49 @@ export async function POST() {
       return NextResponse.json({ error: 'output.mkv file not found. Please concatenate videos first.' }, { status: 400 });
     }
 
-    // Use ffmpeg to convert MKV to MP4 with higher quality
-    const command = `ffmpeg -i "${inputPath}" -c:v libx264 -c:a aac -preset medium -crf 18 -b:a 192k "${outputPath}" -y`;
+    // First try fast remuxing (copy streams without re-encoding) - like OBS
+    let command = `ffmpeg -i "${inputPath}" -c copy "${outputPath}" -y`;
+    let remuxFailed = false;
     
-    console.log('Executing conversion command:', command);
+    console.log('Attempting fast remux (copy streams):', command);
     
-    const { stdout, stderr } = await execAsync(command, { 
-      cwd: videosPath,
-      timeout: 600000 // 10 minute timeout for conversion
-    });
+    try {
+      const { stdout, stderr } = await execAsync(command, { 
+        cwd: videosPath,
+        timeout: 60000 // 1 minute timeout for remux (should be seconds)
+      });
+      
+      console.log('FFmpeg remux stdout:', stdout);
+      if (stderr) console.log('FFmpeg remux stderr:', stderr);
+      
+      return NextResponse.json({ 
+        success: true, 
+        message: 'Successfully remuxed output.mkv to output.mp4 (instant, no re-encoding)'
+      });
+      
+    } catch (remuxError) {
+      console.log('Fast remux failed, falling back to re-encoding:', remuxError);
+      remuxFailed = true;
+    }
     
-    console.log('FFmpeg stdout:', stdout);
-    if (stderr) console.log('FFmpeg stderr:', stderr);
-    
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Successfully converted output.mkv to output.mp4'
-    });
+    // Fallback: Re-encode only if remux fails (incompatible codecs)
+    if (remuxFailed) {
+      command = `ffmpeg -i "${inputPath}" -c:v libx264 -c:a aac -preset ultrafast -crf 23 "${outputPath}" -y`;
+      console.log('Executing re-encoding command:', command);
+      
+      const { stdout, stderr } = await execAsync(command, { 
+        cwd: videosPath,
+        timeout: 600000 // 10 minute timeout for re-encoding
+      });
+      
+      console.log('FFmpeg re-encode stdout:', stdout);
+      if (stderr) console.log('FFmpeg re-encode stderr:', stderr);
+      
+      return NextResponse.json({ 
+        success: true, 
+        message: 'Successfully converted output.mkv to output.mp4 (re-encoded due to codec incompatibility)'
+      });
+    }
     
   } catch (error) {
     console.error('Error converting video:', error);
